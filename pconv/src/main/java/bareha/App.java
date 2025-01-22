@@ -25,7 +25,14 @@ public class App
 
         HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString()); // this will get response
 
-        System.out.println("response code: " + response.statusCode());
-        System.out.println("response body: " + response.body());
+        // System.out.println("response code: " + response.statusCode());
+        // System.out.println("response body: " + response.body());
+
+        String jsonString = response.body();
+        Gson gson = new Gson();
+        AccessToken accessToken = gson.fromJson(jsonString, AccessToken.class);
+        System.out.println("Acess Token: " + accessToken.getAccess_Token());
+        System.out.println("Token Type: " + accessToken.getToken_Type());
+        System.out.println("Expires In: " + accessToken.getExpires_In());
     }
 }
