@@ -9,8 +9,9 @@ import com.google.gson.Gson;
 
 public class App 
 {
-    public static void main( String[] args ) throws URISyntaxException, IOException, InterruptedException
+    public static void main( String[] args ) throws URISyntaxException, IOException, InterruptedException, ExpiredTokenException
     {
+
         HttpClient client = HttpClient.newHttpClient(); // creating client
         String client_id = "800a13ce72b04d4eb5636c5b3af6beb6";
         String client_secret = "dc3e86d9fef0440aa4a2bb419fe316cb";
@@ -34,5 +35,9 @@ public class App
         System.out.println("Acess Token: " + accessToken.getAccess_Token());
         System.out.println("Token Type: " + accessToken.getToken_Type());
         System.out.println("Expires In: " + accessToken.getExpires_In());
+
+        if(response.statusCode() != 200){
+            throw new ExpiredTokenException("invalid token");
+        }
     }
 }
