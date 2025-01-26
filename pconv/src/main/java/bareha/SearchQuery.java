@@ -25,4 +25,7 @@ public class SearchQuery {
     String getAlbum_Name(){
         return album_name;
     }
+    String generateQuery(){
+        return "a";
+    }
 }
