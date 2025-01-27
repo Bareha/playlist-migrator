@@ -44,7 +44,7 @@ public class App
 
         // now we get the playlist info
         Scanner sc = new Scanner(System.in);
-        System.out.print("Enter the PLaylist ID: ");
+        System.out.print("Enter the PLaylist ID: "); // make sure playlist id, not album id
         String playlistID = sc.nextLine();
         sc.close();
 

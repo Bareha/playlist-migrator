@@ -3,10 +3,14 @@ package bareha;
 import java.util.ArrayList;
 
 public class SearchQuery {
+    private String playlist_name;
     private String track_name;
     private ArrayList<String> artists;
     private String album_name;
 
+    void setPlaylist_Name(String playlist_name){
+        this.playlist_name = playlist_name;
+    }
     void setTrack_Name(String track_name){
         this.track_name = track_name;
     }
@@ -15,6 +19,9 @@ public class SearchQuery {
     }
     void setAlbum_Name(String album_name){
         this.album_name = album_name;
+    }
+    String getPlaylist_Name(){
+        return playlist_name;
     }
     String getTrack_Name(){
         return track_name;
