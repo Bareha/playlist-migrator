@@ -31,9 +31,9 @@ public class App
         // System.out.println("response code: " + response.statusCode());
         // System.out.println("response body: " + response.body());
 
-        String jsonString = responseToken.body();
-        Gson gson = new Gson();
-        AccessToken accessToken = gson.fromJson(jsonString, AccessToken.class);
+        String json_accessToken = responseToken.body();
+        Gson gson1 = new Gson();
+        AccessToken accessToken = gson1.fromJson(json_accessToken, AccessToken.class);
         System.out.println("Acess Token: " + accessToken.getAccess_Token());
         System.out.println("Token Type: " + accessToken.getToken_Type());
         System.out.println("Expires In: " + accessToken.getExpires_In());
@@ -56,5 +56,10 @@ public class App
         
         HttpResponse<String> responsePlaylist = client.send(requestPlaylist, HttpResponse.BodyHandlers.ofString());
         System.out.println(responsePlaylist.body());
+        String playlist_details = responsePlaylist.body();
+        Gson gson2 = new Gson();
+        SearchQuery searchQuery = gson2.fromJson(playlist_details, SearchQuery.class);
+        System.out.println("Playlist name: " + searchQuery.getPlaylist_Name());
+        System.out.println("Owner's name: " + searchQuery.getOwner());
     }
 }
