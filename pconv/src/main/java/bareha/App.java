@@ -5,12 +5,14 @@ import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.ArrayList;
 import java.util.Scanner;
 
 import com.google.gson.Gson;
 
 public class App 
 {
+    @SuppressWarnings("unlikely-arg-type")
     public static void main( String[] args ) throws URISyntaxException, IOException, InterruptedException, ExpiredTokenException
      {
 
@@ -55,18 +57,33 @@ public class App
             .build();
         
         HttpResponse<String> responsePlaylist = client.send(requestPlaylist, HttpResponse.BodyHandlers.ofString());
-        System.out.println(responsePlaylist.body());
         String playlist_details = responsePlaylist.body();
         Gson gson2 = new Gson();
         SearchQuery searchQuery = gson2.fromJson(playlist_details, SearchQuery.class);
 
         System.out.println("Playlist name: " + searchQuery.getPlaylist_Name());
+
+        ArrayList<String> queryList = new ArrayList<>();
         if (searchQuery.getTracks() != null && searchQuery.getTracks().getItems() != null) {
             for (TrackItem item : searchQuery.getTracks().getItems()) {
+                String query = "";
                 if (item.getTrack() != null) {
-                    System.out.println("Track Name: " + item.getTrack().getName());
+                    query = item.getTrack().getName() + " ";
                 }
+                if (item.getTrack().getAlbum() != null && !item.getTrack().getAlbum().getName().equals(item.getTrack().getName())) {
+                    query = query + item.getTrack().getAlbum().getName() + " ";
+                }
+                if (item.getTrack().getArtists() != null) {
+                    for (Artist artist : item.getTrack().getArtists()) {
+                        query = query + artist.getName();
+                    }
+                }
+                query = query + " offical audio";
+                queryList.add(query);
             }
+        }
+        for (String searchquery : queryList){
+            System.out.println(searchquery);
         }
     }
 }
