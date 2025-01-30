@@ -59,6 +59,14 @@ public class App
         String playlist_details = responsePlaylist.body();
         Gson gson2 = new Gson();
         SearchQuery searchQuery = gson2.fromJson(playlist_details, SearchQuery.class);
+
         System.out.println("Playlist name: " + searchQuery.getPlaylist_Name());
+        if (searchQuery.getTracks() != null && searchQuery.getTracks().getItems() != null) {
+            for (TrackItem item : searchQuery.getTracks().getItems()) {
+                if (item.getTrack() != null) {
+                    System.out.println("Track Name: " + item.getTrack().getName());
+                }
+            }
+        }
     }
 }

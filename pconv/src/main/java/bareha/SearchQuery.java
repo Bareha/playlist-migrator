@@ -7,7 +7,7 @@ public class SearchQuery {
     private Owner owner;
     private Tracks tracks;
 
-    public String getPLaylist_Name(){
+    public String getPlaylist_Name(){
         return name;
     }
     public Owner getOwner(){
@@ -26,10 +26,10 @@ class Owner{
     }
 }
 
-class Tracks{
+class Tracks {
     private ArrayList<TrackItem> items;
 
-    public ArrayList<TrackItem> getItems(){
+    public ArrayList<TrackItem> getItems() {
         return items;
     }
 }
