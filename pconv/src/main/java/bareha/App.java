@@ -60,6 +60,5 @@ public class App
         Gson gson2 = new Gson();
         SearchQuery searchQuery = gson2.fromJson(playlist_details, SearchQuery.class);
         System.out.println("Playlist name: " + searchQuery.getPlaylist_Name());
-        System.out.println("Owner's name: " + searchQuery.getOwner());
     }
 }

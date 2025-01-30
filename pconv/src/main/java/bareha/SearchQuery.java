@@ -4,42 +4,72 @@ import java.util.ArrayList;
 
 public class SearchQuery {
     private String name;
-    private String track_name;
-    private ArrayList<String> artists;
-    private String album_name;
-    private String owner;
+    private Owner owner;
+    private Tracks tracks;
 
-    void setOwner(String owner){
-        this.owner = owner;
-    }
-    String getOwner(){
-        return owner;
-    }
-    void setPlaylist_Name(String playlist_name){
-        this.name = name;
-    }
-    void setTrack_Name(String track_name){
-        this.track_name = track_name;
-    }
-    void setArtists(ArrayList<String> artists){
-        this.artists = artists;
-    }
-    void setAlbum_Name(String album_name){
-        this.album_name = album_name;
-    }
-    String getPlaylist_Name(){
+    public String getPLaylist_Name(){
         return name;
     }
-    String getTrack_Name(){
-        return track_name;
+    public Owner getOwner(){
+        return owner;
     }
-    ArrayList<String> getArtists(){
+    public Tracks getTracks(){
+        return tracks;
+    }
+}
+
+class Owner{
+    private String display_name;
+
+    public String getDisplay_Name(){
+        return display_name;
+    }
+}
+
+class Tracks{
+    private ArrayList<TrackItem> items;
+
+    public ArrayList<TrackItem> getItems(){
+        return items;
+    }
+}
+
+class TrackItem{
+    private Track track;
+
+    public Track getTrack(){
+        return track;
+    }
+}
+
+class Track{
+    private String name;
+    private ArrayList<Artist> artists;
+    private Album album;
+
+    public String getName(){
+        return name;
+    }
+    public ArrayList<Artist> getArtists(){
         return artists;
     }
-    String getAlbum_Name(){
-        return album_name;
+    public Album getAlbum(){
+        return album;
     }
-    String generateQuery(){
-        return "a";
+}
+
+class Artist{
+    private String name;
+
+    public String getName(){
+        return name;
+    }
+}
+
+class Album{
+    private String name;
+
+    public String getName(){
+        return name;
     }
 }
