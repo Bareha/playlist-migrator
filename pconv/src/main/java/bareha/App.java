@@ -15,10 +15,9 @@ public class App
     @SuppressWarnings("unlikely-arg-type")
     public static void main( String[] args ) throws URISyntaxException, IOException, InterruptedException, ExpiredTokenException
      {
-
         HttpClient client = HttpClient.newHttpClient(); // creating client
-        String client_id = "800a13ce72b04d4eb5636c5b3af6beb6";
-        String client_secret = "dc3e86d9fef0440aa4a2bb419fe316cb";
+        String client_id = System.getenv("SPOTIFY_CLIENT_ID");
+        String client_secret = System.getenv("SPOTIFY_CLIENT_SECRET");
         String body = String.format("grant_type=client_credentials&client_id=%s&client_secret=%s", client_id, client_secret);
 
         // this is to send a request
@@ -36,9 +35,6 @@ public class App
         String json_accessToken = responseToken.body();
         Gson gson1 = new Gson();
         AccessToken accessToken = gson1.fromJson(json_accessToken, AccessToken.class);
-        System.out.println("Acess Token: " + accessToken.getAccess_Token());
-        System.out.println("Token Type: " + accessToken.getToken_Type());
-        System.out.println("Expires In: " + accessToken.getExpires_In());
 
         if(responseToken.statusCode() != 200){
             throw new ExpiredTokenException("invalid token");

@@ -1,0 +1,10 @@
+bareha\SearchQuery.class
+bareha\TrackItem.class
+bareha\App.class
+bareha\Tracks.class
+bareha\AccessToken.class
+bareha\Track.class
+bareha\Artist.class
+bareha\ExpiredTokenException.class
+bareha\Owner.class
+bareha\Album.class
