@@ -56,7 +56,10 @@ public class App
         String playlist_details = responsePlaylist.body();
         Gson gson2 = new Gson();
         SearchQuery searchQuery = gson2.fromJson(playlist_details, SearchQuery.class);
-
+        if(searchQuery.getPublic() != true){
+            System.out.println("Please enter a public playlist :(");
+            return;
+        }
         System.out.println("Playlist name: " + searchQuery.getPlaylist_Name());
 
         ArrayList<String> queryList = new ArrayList<>();

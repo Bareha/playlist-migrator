@@ -2,10 +2,14 @@ package bareha;
 
 import java.util.ArrayList;
 
+import com.google.gson.annotations.SerializedName;
+
 public class SearchQuery {
     private String name;
     private Owner owner;
     private Tracks tracks;
+    @SerializedName("public")
+    private boolean isPublic;
 
     public String getPlaylist_Name(){
         return name;
@@ -15,6 +19,9 @@ public class SearchQuery {
     }
     public Tracks getTracks(){
         return tracks;
+    }
+    public boolean getPublic(){
+        return isPublic;
     }
 }
 
