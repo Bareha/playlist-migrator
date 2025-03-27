@@ -1,20 +1,34 @@
 package bareha;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Scanner;
 
+import com.google.api.client.json.JsonFactory;
+import com.google.api.client.auth.oauth2.Credential;
+import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
+import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
+import com.google.api.client.googleapis.auth.oauth2.GoogleTokenResponse;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.api.services.youtube.YouTube;
 import com.google.gson.Gson;
+
 
 public class App 
 {
-    @SuppressWarnings("unlikely-arg-type")
+    private static final Scanner sc = new Scanner(System.in);
     public static void main( String[] args ) throws URISyntaxException, IOException, InterruptedException, ExpiredTokenException
      {
+        
         HttpClient client = HttpClient.newHttpClient(); // creating client
         String client_id = System.getenv("SPOTIFY_CLIENT_ID");
         String client_secret = System.getenv("SPOTIFY_CLIENT_SECRET");
@@ -41,10 +55,8 @@ public class App
         }
 
         // now we get the playlist info
-        Scanner sc = new Scanner(System.in);
         System.out.print("Enter the PLaylist ID: "); // make sure playlist id, not album id
         String playlistID = sc.nextLine();
-        sc.close();
 
         HttpRequest requestPlaylist = HttpRequest.newBuilder()
             .uri(new URI("https://api.spotify.com/v1/playlists/" + playlistID))
@@ -77,12 +89,63 @@ public class App
                         query = query + artist.getName();
                     }
                 }
-                query = query + " offical audio";
+                query = query + " official audio";
                 queryList.add(query);
             }
         }
         for (String searchquery : queryList){
             System.out.println(searchquery);
         }
+
+        YouTube service = getYouTubeService();
+        System.out.println(service);
     }
+    private static final String CLIENT_SECRET_PATH = "client_secret.json";
+    private static YouTube getYouTubeService() throws IOException {
+        JsonFactory jsonFactory = JacksonFactory.getDefaultInstance();
+        NetHttpTransport httpTransport = new NetHttpTransport();
+    
+        InputStream in = App.class.getClassLoader().getResourceAsStream(CLIENT_SECRET_PATH);
+    
+        if (in == null) {
+            throw new IOException("Resource not found: " + CLIENT_SECRET_PATH);
+        }
+    
+        Reader reader = new InputStreamReader(in);
+        GoogleClientSecrets clientSecrets = GoogleClientSecrets.load(jsonFactory, reader);
+    
+        GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
+                httpTransport, jsonFactory, clientSecrets,
+                Collections.singletonList("https://www.googleapis.com/auth/youtube.force-ssl"))
+                .setAccessType("offline")
+                .build();
+    
+        Credential credential = flow.loadCredential("user"); // checks if the credential is saved already
+    
+        if (credential == null) {
+            String redirectUri = "urn:ietf:wg:oauth:2.0:oob";
+            String authUrl = flow.newAuthorizationUrl().setRedirectUri(redirectUri).build();
+            System.out.println("Open this URL in your browser and authorize the application:");
+            System.out.println(authUrl);
+    
+            System.out.print("Enter the authorization code: ");
+            String code = sc.nextLine();
+    
+            GoogleTokenResponse tokenResponse = flow.newTokenRequest(code) // get tokens from auth code
+                    .setRedirectUri(redirectUri)
+                    .execute();
+
+            Credential newCredential = flow.createAndStoreCredential(tokenResponse, "user");
+    
+            System.out.println("Authentication successful!");
+    
+            return new YouTube.Builder(httpTransport, jsonFactory, newCredential)
+                    .setApplicationName("Playlist Maker")
+                    .build();
+        }
+        
+        return new YouTube.Builder(httpTransport, jsonFactory, credential)
+                .setApplicationName("Playlist Maker")
+                .build();
+    }    
 }
