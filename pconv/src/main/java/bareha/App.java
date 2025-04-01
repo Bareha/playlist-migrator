@@ -1,8 +1,7 @@
 package bareha;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.Reader;
+import java.io.StringReader;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.http.HttpClient;
@@ -21,6 +20,8 @@ import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.services.youtube.YouTube;
 import com.google.gson.Gson;
+
+import io.github.cdimascio.dotenv.Dotenv;
 
 
 public class App 
@@ -100,18 +101,19 @@ public class App
         YouTube service = getYouTubeService();
         System.out.println(service);
     }
-    private static final String CLIENT_SECRET_PATH = "client_secret.json";
     private static YouTube getYouTubeService() throws IOException {
         JsonFactory jsonFactory = JacksonFactory.getDefaultInstance();
         NetHttpTransport httpTransport = new NetHttpTransport();
+        Dotenv dotenv = Dotenv.configure()
+            .directory("C:/Bareha_Projects/PlaylistConverter")
+            .load();
+        String CLIENT_SECRET_PATH = dotenv.get("CLIENT_SECRET_JSON");
     
-        InputStream in = App.class.getClassLoader().getResourceAsStream(CLIENT_SECRET_PATH);
-    
-        if (in == null) {
+        if (CLIENT_SECRET_PATH == null) {
             throw new IOException("Resource not found: " + CLIENT_SECRET_PATH);
         }
     
-        Reader reader = new InputStreamReader(in);
+        Reader reader = new StringReader(CLIENT_SECRET_PATH);
         GoogleClientSecrets clientSecrets = GoogleClientSecrets.load(jsonFactory, reader);
     
         GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
