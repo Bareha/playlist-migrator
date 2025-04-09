@@ -9,6 +9,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Scanner;
 
 import com.google.api.client.json.JsonFactory;
@@ -19,6 +20,14 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleTokenResponse;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.services.youtube.YouTube;
+import com.google.api.services.youtube.model.Playlist;
+import com.google.api.services.youtube.model.PlaylistItem;
+import com.google.api.services.youtube.model.PlaylistItemSnippet;
+import com.google.api.services.youtube.model.PlaylistSnippet;
+import com.google.api.services.youtube.model.PlaylistStatus;
+import com.google.api.services.youtube.model.ResourceId;
+import com.google.api.services.youtube.model.SearchListResponse;
+import com.google.api.services.youtube.model.SearchResult;
 import com.google.gson.Gson;
 
 import io.github.cdimascio.dotenv.Dotenv;
@@ -73,7 +82,8 @@ public class App
             System.out.println("Please enter a public playlist :(");
             return;
         }
-        System.out.println("Playlist name: " + searchQuery.getPlaylist_Name());
+        String playlistName = searchQuery.getPlaylist_Name();
+        System.out.println("Playlist name: " + playlistName);
 
         ArrayList<String> queryList = new ArrayList<>();
         if (searchQuery.getTracks() != null && searchQuery.getTracks().getItems() != null) {
@@ -90,17 +100,51 @@ public class App
                         query = query + artist.getName();
                     }
                 }
-                query = query + " official audio";
+                query = query + " official";
                 queryList.add(query);
             }
-        }
-        for (String searchquery : queryList){
-            System.out.println(searchquery);
         }
 
         YouTube service = getYouTubeService();
         System.out.println(service);
+
+        YouTube.Playlists.Insert request = service.playlists()
+            .insert("snippet,status", new Playlist()
+                .setSnippet(new PlaylistSnippet().setTitle(playlistName))
+                .setStatus(new PlaylistStatus().setPrivacyStatus("private")));
+        Playlist playlistResponse = request.execute();
+        String playlistId = playlistResponse.getId(); 
+
+        List<String> videoIds = new ArrayList<>();
+        for (String searchQ : queryList) {
+            YouTube.Search.List searchRequest = service.search()
+                .list("id")
+                .setQ(searchQ)
+                .setMaxResults(1L)
+                .setType("video");
+
+            SearchListResponse searchResponse = searchRequest.execute();
+            List<SearchResult> searchResults = searchResponse.getItems();
+
+            if (searchResults != null && !searchResults.isEmpty()) {
+                String videoId = searchResults.get(0).getId().getVideoId();
+                videoIds.add(videoId);
+            }
+        }
+
+        for (String videoId : videoIds) {
+            YouTube.PlaylistItems.Insert insertRequest = service.playlistItems()
+                .insert("snippet", new PlaylistItem()
+                    .setSnippet(new PlaylistItemSnippet()
+                        .setPlaylistId(playlistId)
+                        .setResourceId(new ResourceId()
+                            .setKind("youtube#video")
+                            .setVideoId(videoId))));
+
+            insertRequest.execute(); 
+        }
     }
+
     private static YouTube getYouTubeService() throws IOException {
         JsonFactory jsonFactory = JacksonFactory.getDefaultInstance();
         NetHttpTransport httpTransport = new NetHttpTransport();
