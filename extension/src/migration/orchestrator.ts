@@ -2,6 +2,7 @@ import { collectAllTrackItems } from "../core/pagination";
 import { buildSearchQuery } from "../core/queryBuilder";
 import { estimateYoutubeQuotaUnits } from "../core/quota";
 import { fetchPlaylist, fetchTracksPage } from "../spotify/api";
+import type { SpotifyPlaylist, SpotifyTracks } from "../spotify/types";
 import { createPlaylist, insertPlaylistItem, searchVideoId } from "../youtube/api";
 import { loadMigrationState, saveMigrationState, type MigrationState } from "./state";
 
@@ -20,19 +21,36 @@ export interface MigrationPreparation {
   quota: QuotaEstimate;
 }
 
+// Spotify's documented playlist schema nests the tracks paging object under `tracks`.
+// Empirically, some playlist responses instead put `items`/`next` directly on the
+// playlist object with no `tracks` key at all — this normalizes both into SpotifyTracks.
+// NOTE: the fallback branch has no pagination signal beyond a possible top-level `next`
+// (no `limit`/`offset`/`total` were observed alongside it), so a playlist that hits this
+// fallback AND has more than one page of tracks needs to be specifically re-verified.
+export function extractTracksData(playlist: SpotifyPlaylist): SpotifyTracks | null {
+  if (playlist.tracks) {
+    return playlist.tracks;
+  }
+  if (playlist.items) {
+    return { items: playlist.items, next: playlist.next ?? null };
+  }
+  return null;
+}
+
 // Fetches and paginates the full Spotify playlist, builds the query list, and estimates
 // quota cost — without starting the migration. The popup uses this to show a preview
 // (name, track count, quota warning) before the user confirms.
 export async function prepareMigration(spotifyPlaylistId: string): Promise<MigrationPreparation> {
   const playlist = await fetchPlaylist(spotifyPlaylistId);
-  if (!playlist.tracks) {
+  const tracksData = extractTracksData(playlist);
+  if (!tracksData) {
     throw new Error(
       `Spotify's response for playlist ${spotifyPlaylistId} did not include track data ` +
         `(response had keys: ${Object.keys(playlist).join(", ") || "none"}). ` +
         "Double-check the playlist URL/ID is correct and that it's not empty or unavailable.",
     );
   }
-  const allTrackItems = await collectAllTrackItems(playlist.tracks, fetchTracksPage);
+  const allTrackItems = await collectAllTrackItems(tracksData, fetchTracksPage);
 
   const queries: string[] = [];
   let skippedCount = 0;

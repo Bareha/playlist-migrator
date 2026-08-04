@@ -29,7 +29,13 @@ export interface SpotifyPlaylist {
   name: string;
   owner: SpotifyOwner;
   public: boolean | null;
-  tracks: SpotifyTracks;
+  // Documented shape: tracks paging object nested under `tracks`.
+  tracks?: SpotifyTracks;
+  // Empirically observed alternate shape for some playlists: the tracks paging object's
+  // `items`/`next` fields come back as siblings of `name`/`owner` instead of nested under
+  // `tracks`, with no `tracks` key at all. Handled as a fallback in migration/orchestrator.ts.
+  items?: SpotifyTrackItem[];
+  next?: string | null;
 }
 
 export interface SpotifyTokenSet {

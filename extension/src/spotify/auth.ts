@@ -129,10 +129,27 @@ export async function isSpotifyConnected(): Promise<boolean> {
   return (await loadStoredTokens()) !== null;
 }
 
+// Single-flight guard: the toolbar popup auto-closes the instant the interactive OAuth
+// window steals focus (normal Chrome behavior), so a user reopening the popup mid-flow
+// and clicking "Connect Spotify" again is common — without this guard, that second call
+// would overwrite/clear the first call's transient verifier+state in storage before the
+// first flow finishes, causing it to fail with "authorization state was lost".
+let inFlightAuth: Promise<void> | null = null;
+
+export function startSpotifyAuth(): Promise<void> {
+  if (inFlightAuth) {
+    return inFlightAuth;
+  }
+  inFlightAuth = performSpotifyAuth().finally(() => {
+    inFlightAuth = null;
+  });
+  return inFlightAuth;
+}
+
 // Drives the full PKCE flow: generates verifier/challenge/state, opens the Spotify
 // consent screen via chrome.identity, validates the returned state, and exchanges
 // the code for tokens.
-export async function startSpotifyAuth(): Promise<void> {
+async function performSpotifyAuth(): Promise<void> {
   const redirectUri = chrome.identity.getRedirectURL();
   const codeVerifier = generateCodeVerifier();
   const codeChallenge = await generateCodeChallenge(codeVerifier);

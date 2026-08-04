@@ -25,7 +25,7 @@ vi.mock("../spotify/api", () => ({
 
 import { createPlaylist, insertPlaylistItem, searchVideoId } from "../youtube/api";
 import { fetchPlaylist } from "../spotify/api";
-import { prepareMigration, resumeMigration, startMigration } from "./orchestrator";
+import { extractTracksData, prepareMigration, resumeMigration, startMigration } from "./orchestrator";
 import { saveMigrationState } from "./state";
 
 beforeEach(() => {
@@ -42,6 +42,65 @@ describe("prepareMigration", () => {
     expect(result.skippedCount).toBe(1);
     expect(result.quota.estimatedUnits).toBe(200); // 50 + 1*150
     expect(result.quota.exceedsDefaultDailyCap).toBe(false);
+  });
+
+  it("falls back to a top-level items array when the response has no tracks key", async () => {
+    // Regression test for an empirically observed Spotify response shape where the
+    // tracks paging object's fields land directly on the playlist instead of nested
+    // under `tracks` (see extractTracksData).
+    vi.mocked(fetchPlaylist).mockResolvedValueOnce({
+      name: "Flat Shape Playlist",
+      owner: { display_name: "me" },
+      public: true,
+      items: [{ track: { name: "Song A", album: null, artists: [{ name: "Artist" }] } }],
+      next: null,
+    });
+
+    const result = await prepareMigration("spotify456");
+    expect(result.playlistName).toBe("Flat Shape Playlist");
+    expect(result.queries).toEqual(["Song A Artist official"]);
+    expect(result.skippedCount).toBe(0);
+  });
+
+  it("throws a diagnostic error when neither shape is present", async () => {
+    vi.mocked(fetchPlaylist).mockResolvedValueOnce({
+      name: "Broken Playlist",
+      owner: { display_name: "me" },
+      public: true,
+    } as never);
+
+    await expect(prepareMigration("spotify789")).rejects.toThrow(/did not include track data/);
+  });
+});
+
+describe("extractTracksData", () => {
+  it("prefers the documented tracks-nested shape when present", () => {
+    const tracks = { items: [], next: "next-url" };
+    const result = extractTracksData({
+      name: "P",
+      owner: { display_name: null },
+      public: true,
+      tracks,
+      items: [{ track: null }], // should be ignored since tracks is present
+    });
+    expect(result).toBe(tracks);
+  });
+
+  it("falls back to top-level items/next when tracks is absent", () => {
+    const items = [{ track: null }];
+    const result = extractTracksData({
+      name: "P",
+      owner: { display_name: null },
+      public: true,
+      items,
+      next: "next-url",
+    });
+    expect(result).toEqual({ items, next: "next-url" });
+  });
+
+  it("returns null when neither shape is present", () => {
+    const result = extractTracksData({ name: "P", owner: { display_name: null }, public: true });
+    expect(result).toBeNull();
   });
 });
 
