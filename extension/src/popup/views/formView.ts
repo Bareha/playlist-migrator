@@ -4,8 +4,12 @@ export interface FormViewProps {
   spotifyConnected: boolean;
   youtubeConnected: boolean;
   preparation?: MigrationPreparation | null;
+  settingsOpen: boolean;
   onConnectSpotify: () => void;
   onConnectYoutube: () => void;
+  onDisconnectSpotify: () => void;
+  onDisconnectYoutube: () => void;
+  onToggleSettings: () => void;
   onPrepare: (playlistId: string) => void;
   onStart?: () => void;
 }
@@ -13,9 +17,26 @@ export interface FormViewProps {
 export function renderFormView(container: HTMLElement, props: FormViewProps): void {
   container.innerHTML = "";
 
+  const headerRow = document.createElement("div");
+  headerRow.className = "header-row";
+
   const heading = document.createElement("h1");
   heading.textContent = "Playlist Migrator";
-  container.appendChild(heading);
+  headerRow.appendChild(heading);
+
+  const settingsButton = document.createElement("button");
+  settingsButton.className = "settings-btn";
+  settingsButton.type = "button";
+  settingsButton.title = "Settings";
+  settingsButton.textContent = "⚙";
+  settingsButton.addEventListener("click", props.onToggleSettings);
+  headerRow.appendChild(settingsButton);
+
+  container.appendChild(headerRow);
+
+  if (props.settingsOpen) {
+    container.appendChild(buildSettingsPanel(props));
+  }
 
   const authRow = document.createElement("div");
   authRow.className = "auth-row";
@@ -67,6 +88,37 @@ export function renderFormView(container: HTMLElement, props: FormViewProps): vo
     startButton.addEventListener("click", () => props.onStart?.());
     container.appendChild(startButton);
   }
+}
+
+function buildSettingsPanel(props: FormViewProps): HTMLElement {
+  const panel = document.createElement("div");
+  panel.className = "settings-panel";
+
+  if (!props.spotifyConnected && !props.youtubeConnected) {
+    const empty = document.createElement("p");
+    empty.className = "settings-empty";
+    empty.textContent = "Nothing connected yet.";
+    panel.appendChild(empty);
+    return panel;
+  }
+
+  if (props.spotifyConnected) {
+    const disconnectSpotify = document.createElement("button");
+    disconnectSpotify.type = "button";
+    disconnectSpotify.textContent = "Disconnect Spotify";
+    disconnectSpotify.addEventListener("click", props.onDisconnectSpotify);
+    panel.appendChild(disconnectSpotify);
+  }
+
+  if (props.youtubeConnected) {
+    const disconnectYoutube = document.createElement("button");
+    disconnectYoutube.type = "button";
+    disconnectYoutube.textContent = "Disconnect YouTube";
+    disconnectYoutube.addEventListener("click", props.onDisconnectYoutube);
+    panel.appendChild(disconnectYoutube);
+  }
+
+  return panel;
 }
 
 function buildPreview(preparation: MigrationPreparation): HTMLElement {

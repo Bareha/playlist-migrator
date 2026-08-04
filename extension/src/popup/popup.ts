@@ -19,14 +19,30 @@ function send(message: PopupToBackgroundMessage): void {
 
 let currentPreparation: MigrationPreparation | null = null;
 let currentSpotifyPlaylistId = "";
+let settingsOpen = false;
 
 function showForm(authStatus: { spotifyConnected: boolean; youtubeConnected: boolean }): void {
   renderFormView(appEl, {
     spotifyConnected: authStatus.spotifyConnected,
     youtubeConnected: authStatus.youtubeConnected,
     preparation: currentPreparation,
+    settingsOpen,
     onConnectSpotify: () => send({ type: "CONNECT_SPOTIFY" }),
     onConnectYoutube: () => send({ type: "CONNECT_YOUTUBE" }),
+    onDisconnectSpotify: () => {
+      // Clear any preview built from the account being disconnected, so a subsequent
+      // "Start migration" can't fire using stale data from the old account.
+      currentPreparation = null;
+      send({ type: "DISCONNECT_SPOTIFY" });
+    },
+    onDisconnectYoutube: () => {
+      currentPreparation = null;
+      send({ type: "DISCONNECT_YOUTUBE" });
+    },
+    onToggleSettings: () => {
+      settingsOpen = !settingsOpen;
+      showForm(authStatus);
+    },
     onPrepare: (playlistId) => {
       currentSpotifyPlaylistId = playlistId;
       send({ type: "PREPARE_MIGRATION", spotifyPlaylistId: playlistId });

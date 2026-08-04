@@ -1,5 +1,5 @@
-import { isSpotifyConnected, startSpotifyAuth } from "../spotify/auth";
-import { getYoutubeAccessToken, isYoutubeConnected } from "../youtube/auth";
+import { clearStoredTokens, isSpotifyConnected, startSpotifyAuth } from "../spotify/auth";
+import { disconnectYoutube, getYoutubeAccessToken, isYoutubeConnected } from "../youtube/auth";
 import { prepareMigration, resumeMigration, startMigration } from "../migration/orchestrator";
 import { loadMigrationState } from "../migration/state";
 import type { BackgroundToPopupMessage, PopupToBackgroundMessage } from "../migration/messages";
@@ -64,6 +64,16 @@ async function handleMessage(
     case "CONNECT_YOUTUBE": {
       await getYoutubeAccessToken(true);
       send({ type: "AUTH_STATUS", spotifyConnected: await isSpotifyConnected(), youtubeConnected: true });
+      return;
+    }
+    case "DISCONNECT_SPOTIFY": {
+      await clearStoredTokens();
+      send({ type: "AUTH_STATUS", spotifyConnected: false, youtubeConnected: await isYoutubeConnected() });
+      return;
+    }
+    case "DISCONNECT_YOUTUBE": {
+      await disconnectYoutube();
+      send({ type: "AUTH_STATUS", spotifyConnected: await isSpotifyConnected(), youtubeConnected: false });
       return;
     }
     case "PREPARE_MIGRATION": {

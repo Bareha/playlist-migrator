@@ -5,6 +5,8 @@ export type PopupToBackgroundMessage =
   | { type: "GET_AUTH_STATUS" }
   | { type: "CONNECT_SPOTIFY" }
   | { type: "CONNECT_YOUTUBE" }
+  | { type: "DISCONNECT_SPOTIFY" }
+  | { type: "DISCONNECT_YOUTUBE" }
   | { type: "PREPARE_MIGRATION"; spotifyPlaylistId: string }
   | { type: "START_MIGRATION"; spotifyPlaylistId: string; playlistName: string; queries: string[] }
   | { type: "GET_STATE" };
