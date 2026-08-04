@@ -1,0 +1,66 @@
+body {
+  width: 340px;
+  font-family: system-ui, sans-serif;
+  margin: 0;
+  padding: 12px;
+}
+
+h1 {
+  font-size: 16px;
+  margin: 0 0 12px;
+}
+
+.auth-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+input {
+  padding: 6px;
+  font-size: 13px;
+}
+
+button {
+  padding: 6px 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.preview {
+  margin: 12px 0;
+  font-size: 13px;
+}
+
+.warning {
+  color: #b45309;
+  font-weight: 600;
+}
+
+.error {
+  color: #b91c1c;
+}
+
+progress {
+  width: 100%;
+}
+
+ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  font-size: 12px;
+  max-height: 120px;
+  overflow-y: auto;
+}

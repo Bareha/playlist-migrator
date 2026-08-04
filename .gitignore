@@ -1,1 +1,7 @@
 .env
+
+# extension
+extension/node_modules/
+extension/dist/
+extension/keys/*.pem
+extension/keys/*.der
