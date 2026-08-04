@@ -64,3 +64,14 @@ ul {
   max-height: 120px;
   overflow-y: auto;
 }
+
+.diagnostic {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 11px;
+  background: rgba(128, 128, 128, 0.15);
+  padding: 6px;
+  border-radius: 4px;
+  max-height: 140px;
+  overflow-y: auto;
+}

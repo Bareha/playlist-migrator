@@ -19,22 +19,17 @@ export interface MigrationPreparation {
   queries: string[];
   skippedCount: number;
   quota: QuotaEstimate;
+  // Set only when every track was skipped, as a diagnostic aid: the raw JSON of the first
+  // skipped item, so a real-world response shape mismatch can be diagnosed from the popup
+  // alone without needing DevTools.
+  sampleSkippedItem?: string;
 }
 
 // Spotify's documented playlist schema nests the tracks paging object under `tracks`.
-// Empirically, some playlist responses instead put `items`/`next` directly on the
-// playlist object with no `tracks` key at all — this normalizes both into SpotifyTracks.
-// NOTE: the fallback branch has no pagination signal beyond a possible top-level `next`
-// (no `limit`/`offset`/`total` were observed alongside it), so a playlist that hits this
-// fallback AND has more than one page of tracks needs to be specifically re-verified.
+// Empirically, some playlist responses instead put the exact same paging object under a
+// key literally named `items`, with no `tracks` key at all — this normalizes both.
 export function extractTracksData(playlist: SpotifyPlaylist): SpotifyTracks | null {
-  if (playlist.tracks) {
-    return playlist.tracks;
-  }
-  if (playlist.items) {
-    return { items: playlist.items, next: playlist.next ?? null };
-  }
-  return null;
+  return playlist.tracks ?? playlist.items ?? null;
 }
 
 // Fetches and paginates the full Spotify playlist, builds the query list, and estimates
@@ -54,10 +49,24 @@ export async function prepareMigration(spotifyPlaylistId: string): Promise<Migra
 
   const queries: string[] = [];
   let skippedCount = 0;
-  for (const item of allTrackItems) {
-    const query = buildSearchQuery(item);
+  let sampleSkippedItem: string | undefined;
+  for (let index = 0; index < allTrackItems.length; index++) {
+    const item = allTrackItems[index];
+    let query: string | null;
+    try {
+      query = buildSearchQuery(item);
+    } catch (error) {
+      // Pinpoint exactly which track/field is malformed instead of surfacing a bare
+      // "Cannot read properties of undefined" with no indication of what caused it.
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `Failed to process track ${index + 1} of ${allTrackItems.length}: ${reason}. ` +
+          `Raw track data: ${JSON.stringify(item)}`,
+      );
+    }
     if (query === null) {
       skippedCount += 1;
+      sampleSkippedItem ??= JSON.stringify(item);
       continue;
     }
     queries.push(query);
@@ -66,7 +75,7 @@ export async function prepareMigration(spotifyPlaylistId: string): Promise<Migra
   const estimatedUnits = estimateYoutubeQuotaUnits(queries.length);
 
   return {
-    playlistName: playlist.name,
+    playlistName: playlist.name ?? `Playlist ${spotifyPlaylistId}`,
     queries,
     skippedCount,
     quota: {
@@ -74,6 +83,7 @@ export async function prepareMigration(spotifyPlaylistId: string): Promise<Migra
       estimatedUnits,
       exceedsDefaultDailyCap: estimatedUnits > DEFAULT_DAILY_QUOTA_CAP,
     },
+    ...(queries.length === 0 && sampleSkippedItem ? { sampleSkippedItem } : {}),
   };
 }
 

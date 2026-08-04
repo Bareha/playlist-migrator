@@ -94,6 +94,18 @@ function buildPreview(preparation: MigrationPreparation): HTMLElement {
     preview.appendChild(warning);
   }
 
+  if (preparation.sampleSkippedItem) {
+    const diagnosticLabel = document.createElement("p");
+    diagnosticLabel.className = "warning";
+    diagnosticLabel.textContent = "Every track was skipped — sample raw item for diagnosis:";
+    preview.appendChild(diagnosticLabel);
+
+    const diagnosticSample = document.createElement("pre");
+    diagnosticSample.className = "diagnostic";
+    diagnosticSample.textContent = preparation.sampleSkippedItem;
+    preview.appendChild(diagnosticSample);
+  }
+
   return preview;
 }
 

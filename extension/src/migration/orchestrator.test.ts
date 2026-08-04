@@ -42,18 +42,39 @@ describe("prepareMigration", () => {
     expect(result.skippedCount).toBe(1);
     expect(result.quota.estimatedUnits).toBe(200); // 50 + 1*150
     expect(result.quota.exceedsDefaultDailyCap).toBe(false);
+    // At least one track matched, so no diagnostic sample is needed.
+    expect(result.sampleSkippedItem).toBeUndefined();
   });
 
-  it("falls back to a top-level items array when the response has no tracks key", async () => {
+  it("includes a raw-item diagnostic sample when every track is skipped", async () => {
+    vi.mocked(fetchPlaylist).mockResolvedValueOnce({
+      name: "All Skipped Playlist",
+      owner: { display_name: "me" },
+      public: true,
+      tracks: {
+        items: [{ track: null }, { track: null }],
+        next: null,
+      },
+    });
+
+    const result = await prepareMigration("spotify321");
+    expect(result.queries).toEqual([]);
+    expect(result.skippedCount).toBe(2);
+    expect(result.sampleSkippedItem).toBe(JSON.stringify({ track: null }));
+  });
+
+  it("falls back to a top-level items paging object when the response has no tracks key", async () => {
     // Regression test for an empirically observed Spotify response shape where the
-    // tracks paging object's fields land directly on the playlist instead of nested
-    // under `tracks` (see extractTracksData).
+    // exact same paging object (items + next) comes back under a key literally named
+    // `items` instead of `tracks` (see extractTracksData).
     vi.mocked(fetchPlaylist).mockResolvedValueOnce({
       name: "Flat Shape Playlist",
       owner: { display_name: "me" },
       public: true,
-      items: [{ track: { name: "Song A", album: null, artists: [{ name: "Artist" }] } }],
-      next: null,
+      items: {
+        items: [{ track: { name: "Song A", album: null, artists: [{ name: "Artist" }] } }],
+        next: null,
+      },
     });
 
     const result = await prepareMigration("spotify456");
@@ -71,31 +92,58 @@ describe("prepareMigration", () => {
 
     await expect(prepareMigration("spotify789")).rejects.toThrow(/did not include track data/);
   });
+
+  it("pinpoints which track and raw data caused a crash instead of a bare TypeError", async () => {
+    vi.mocked(fetchPlaylist).mockResolvedValueOnce({
+      name: "Malformed Playlist",
+      owner: { display_name: "me" },
+      public: true,
+      tracks: {
+        items: [
+          { track: { name: "Good Song", album: null, artists: [{ name: "Artist" }] } },
+          // artists isn't actually iterable — not spec-shaped, but real API data can surprise us.
+          { track: { name: "Bad Song", album: null, artists: 42 } },
+        ],
+        next: null,
+      },
+    } as never);
+
+    let caught: unknown;
+    try {
+      await prepareMigration("spotify999");
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(Error);
+    const message = (caught as Error).message;
+    expect(message).toContain("Failed to process track 2 of 2");
+    expect(message).toContain("Bad Song");
+  });
 });
 
 describe("extractTracksData", () => {
   it("prefers the documented tracks-nested shape when present", () => {
-    const tracks = { items: [], next: "next-url" };
+    const tracks = { items: [], next: "tracks-next-url" };
     const result = extractTracksData({
       name: "P",
       owner: { display_name: null },
       public: true,
       tracks,
-      items: [{ track: null }], // should be ignored since tracks is present
+      items: { items: [{ track: null }], next: "items-next-url" }, // ignored since tracks is present
     });
     expect(result).toBe(tracks);
   });
 
-  it("falls back to top-level items/next when tracks is absent", () => {
-    const items = [{ track: null }];
+  it("falls back to the items-keyed paging object when tracks is absent", () => {
+    const items = { items: [{ track: null }], next: "next-url" };
     const result = extractTracksData({
       name: "P",
       owner: { display_name: null },
       public: true,
       items,
-      next: "next-url",
     });
-    expect(result).toEqual({ items, next: "next-url" });
+    expect(result).toBe(items);
   });
 
   it("returns null when neither shape is present", () => {

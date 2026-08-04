@@ -41,21 +41,34 @@ export async function createPlaylist(title: string): Promise<string> {
   return result.id;
 }
 
-// Mirrors App.java's search().list(...).setMaxResults(1L) — returns null on no match,
-// matching the "log and skip" behavior instead of the old silent-drop bug.
+// Titles matching this are usually full-album/compilation uploads rather than the single
+// track — YouTube's relevance ranking sometimes puts these above the actual song, especially
+// once the album name is folded into the search query (see core/queryBuilder.ts).
+const LIKELY_NOT_A_SINGLE_TRACK =
+  /\b(full album|album mix|complete album|entire album|discography|full ep|mixtape|greatest hits)\b/i;
+
+// Mirrors App.java's search().list(...) — extended from Java's maxResults(1) to fetch a
+// few candidates so an obviously-wrong top result (e.g. a full-album upload) can be
+// skipped in favor of the next one. Returns null on no match, matching the "log and skip"
+// behavior instead of the old silent-drop bug. search.list costs a flat 100 quota units
+// regardless of maxResults/part, so this doesn't change quota cost (see core/quota.ts).
 export async function searchVideoId(query: string): Promise<string | null> {
   const params = new URLSearchParams({
-    part: "id",
+    part: "snippet",
     q: query,
-    maxResults: "1",
+    maxResults: "5",
     type: "video",
   });
-  const result = await youtubeRequest<{ items: Array<{ id: { videoId: string } }> }>(
-    `/search?${params.toString()}`,
-    { method: "GET" },
-    `Failed to search YouTube for "${query}"`,
-  );
-  return result.items[0]?.id.videoId ?? null;
+  const result = await youtubeRequest<{
+    items: Array<{ id: { videoId: string }; snippet?: { title?: string } }>;
+  }>(`/search?${params.toString()}`, { method: "GET" }, `Failed to search YouTube for "${query}"`);
+
+  const items = result.items ?? [];
+  if (items.length === 0) {
+    return null;
+  }
+  const bestMatch = items.find((item) => !LIKELY_NOT_A_SINGLE_TRACK.test(item.snippet?.title ?? ""));
+  return (bestMatch ?? items[0]).id.videoId;
 }
 
 // Mirrors App.java's playlistItems().insert(...).
