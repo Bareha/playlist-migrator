@@ -8,8 +8,10 @@ export async function collectAllTrackItems(
 ): Promise<SpotifyTrackItem[]> {
   const all: SpotifyTrackItem[] = [];
   let page: SpotifyTracks | null = firstPage;
-  while (page !== null) {
-    if (page.items !== null) {
+  // Loose inequality is deliberate: an API response that doesn't match SpotifyTracks at
+  // runtime (e.g. missing/undefined) must stop the loop, not just a strict `=== null`.
+  while (page != null) {
+    if (page.items != null) {
       all.push(...page.items);
     }
     const next: string | null = page.next;

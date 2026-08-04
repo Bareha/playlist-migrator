@@ -25,6 +25,13 @@ export interface MigrationPreparation {
 // (name, track count, quota warning) before the user confirms.
 export async function prepareMigration(spotifyPlaylistId: string): Promise<MigrationPreparation> {
   const playlist = await fetchPlaylist(spotifyPlaylistId);
+  if (!playlist.tracks) {
+    throw new Error(
+      `Spotify's response for playlist ${spotifyPlaylistId} did not include track data ` +
+        `(response had keys: ${Object.keys(playlist).join(", ") || "none"}). ` +
+        "Double-check the playlist URL/ID is correct and that it's not empty or unavailable.",
+    );
+  }
   const allTrackItems = await collectAllTrackItems(playlist.tracks, fetchTracksPage);
 
   const queries: string[] = [];

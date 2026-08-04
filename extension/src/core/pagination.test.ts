@@ -36,4 +36,14 @@ describe("collectAllTrackItems", () => {
 
     expect(result).toHaveLength(1);
   });
+
+  it("returns an empty list instead of throwing if the first page is undefined at runtime", async () => {
+    // Regression test: an API response that doesn't actually match SpotifyTracks (e.g. a
+    // missing `tracks` field) must not crash with "Cannot read properties of undefined".
+    const result = await collectAllTrackItems(undefined as unknown as SpotifyTracks, async () => {
+      throw new Error("should not fetch a next page when the first page is undefined");
+    });
+
+    expect(result).toHaveLength(0);
+  });
 });
