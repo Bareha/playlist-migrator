@@ -35,9 +35,14 @@ class Owner{
 
 class Tracks {
     private ArrayList<TrackItem> items;
+    private String next;
 
     public ArrayList<TrackItem> getItems() {
         return items;
+    }
+
+    public String getNext() {
+        return next;
     }
 }
 

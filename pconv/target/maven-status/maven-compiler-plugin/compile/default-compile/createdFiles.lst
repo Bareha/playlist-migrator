@@ -1,4 +1,5 @@
 bareha\SearchQuery.class
+bareha\SpotifyApiException.class
 bareha\TrackItem.class
 bareha\App.class
 bareha\Tracks.class
@@ -6,5 +7,6 @@ bareha\AccessToken.class
 bareha\Track.class
 bareha\Artist.class
 bareha\ExpiredTokenException.class
+bareha\App$PageFetcher.class
 bareha\Owner.class
 bareha\Album.class

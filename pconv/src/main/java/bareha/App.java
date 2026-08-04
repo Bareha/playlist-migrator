@@ -1,4 +1,5 @@
 package bareha;
+import java.io.File;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
@@ -14,6 +15,7 @@ import java.util.Scanner;
 
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.auth.oauth2.Credential;
+import com.google.api.client.util.store.FileDataStoreFactory;
 import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
 import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
 import com.google.api.client.googleapis.auth.oauth2.GoogleTokenResponse;
@@ -36,7 +38,7 @@ import io.github.cdimascio.dotenv.Dotenv;
 public class App 
 {
     private static final Scanner sc = new Scanner(System.in);
-    public static void main( String[] args ) throws URISyntaxException, IOException, InterruptedException, ExpiredTokenException
+    public static void main( String[] args ) throws URISyntaxException, IOException, InterruptedException, ExpiredTokenException, SpotifyApiException
      {
         
         HttpClient client = HttpClient.newHttpClient(); // creating client
@@ -75,6 +77,7 @@ public class App
             .build();
         
         HttpResponse<String> responsePlaylist = client.send(requestPlaylist, HttpResponse.BodyHandlers.ofString());
+        ensureSuccess(responsePlaylist.statusCode(), responsePlaylist.body(), "Failed to fetch playlist " + playlistID);
         String playlist_details = responsePlaylist.body();
         Gson gson2 = new Gson();
         SearchQuery searchQuery = gson2.fromJson(playlist_details, SearchQuery.class);
@@ -85,24 +88,24 @@ public class App
         String playlistName = searchQuery.getPlaylist_Name();
         System.out.println("Playlist name: " + playlistName);
 
+        List<TrackItem> allTrackItems = collectAllTrackItems(searchQuery.getTracks(),
+            url -> fetchTracksPage(client, url, accessToken.getAccess_Token()));
+
         ArrayList<String> queryList = new ArrayList<>();
-        if (searchQuery.getTracks() != null && searchQuery.getTracks().getItems() != null) {
-            for (TrackItem item : searchQuery.getTracks().getItems()) {
-                String query = "";
-                if (item.getTrack() != null) {
-                    query = item.getTrack().getName() + " ";
-                }
-                if (item.getTrack().getAlbum() != null && !item.getTrack().getAlbum().getName().equals(item.getTrack().getName())) {
-                    query = query + item.getTrack().getAlbum().getName() + " ";
-                }
-                if (item.getTrack().getArtists() != null) {
-                    for (Artist artist : item.getTrack().getArtists()) {
-                        query = query + artist.getName();
-                    }
-                }
-                query = query + " official";
-                queryList.add(query);
+        for (TrackItem item : allTrackItems) {
+            String query = buildSearchQuery(item);
+            if (query == null) {
+                System.out.println("Skipping a track with missing metadata (likely removed from Spotify).");
+                continue;
             }
+            queryList.add(query);
+        }
+
+        System.out.println("Matched " + queryList.size() + " of " + allTrackItems.size() + " tracks to a search query.");
+        int estimatedUnits = estimateYoutubeQuotaUnits(queryList.size());
+        System.out.println("Estimated YouTube API quota usage: " + estimatedUnits + " units (default daily cap is 10,000).");
+        if (estimatedUnits > 10000) {
+            System.out.println("Warning: this migration may exceed your daily YouTube API quota and fail partway through.");
         }
 
         YouTube service = getYouTubeService();
@@ -129,6 +132,8 @@ public class App
             if (searchResults != null && !searchResults.isEmpty()) {
                 String videoId = searchResults.get(0).getId().getVideoId();
                 videoIds.add(videoId);
+            } else {
+                System.out.println("No YouTube match found for: " + searchQ);
             }
         }
 
@@ -145,27 +150,107 @@ public class App
         }
     }
 
+    static String buildSearchQuery(TrackItem item) {
+        Track track = item.getTrack();
+        if (track == null) {
+            return null;
+        }
+        StringBuilder query = new StringBuilder(track.getName());
+        Album album = track.getAlbum();
+        if (album != null && album.getName() != null && !album.getName().equals(track.getName())) {
+            query.append(' ').append(album.getName());
+        }
+        if (track.getArtists() != null) {
+            for (Artist artist : track.getArtists()) {
+                query.append(' ').append(artist.getName());
+            }
+        }
+        query.append(" official");
+        return query.toString();
+    }
+
+    static void ensureSuccess(int statusCode, String body, String context) throws SpotifyApiException {
+        if (statusCode / 100 != 2) {
+            throw new SpotifyApiException(context + " (HTTP " + statusCode + "): " + body);
+        }
+    }
+
+    @FunctionalInterface
+    interface PageFetcher {
+        Tracks fetch(String url) throws IOException, InterruptedException, URISyntaxException, SpotifyApiException;
+    }
+
+    static List<TrackItem> collectAllTrackItems(Tracks firstPage, PageFetcher fetchNextPage)
+            throws IOException, InterruptedException, URISyntaxException, SpotifyApiException {
+        List<TrackItem> all = new ArrayList<>();
+        Tracks page = firstPage;
+        while (page != null) {
+            if (page.getItems() != null) {
+                all.addAll(page.getItems());
+            }
+            String next = page.getNext();
+            page = (next != null) ? fetchNextPage.fetch(next) : null;
+        }
+        return all;
+    }
+
+    private static Tracks fetchTracksPage(HttpClient client, String url, String bearerToken) {
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                .uri(new URI(url))
+                .header("Authorization", "Bearer " + bearerToken)
+                .GET()
+                .build();
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            ensureSuccess(response.statusCode(), response.body(), "Failed to fetch next page of tracks");
+            return new Gson().fromJson(response.body(), Tracks.class);
+        } catch (IOException | InterruptedException | URISyntaxException | SpotifyApiException e) {
+            throw new RuntimeException("Failed to fetch next page of tracks from " + url, e);
+        }
+    }
+
+    static int estimateYoutubeQuotaUnits(int trackCount) {
+        return 50 + trackCount * 150; // playlists.insert (50) + per-track search (100) + playlistItems.insert (50)
+    }
+
+    static String resolveConfigDir(String envOverride, String userHome) {
+        if (envOverride != null && !envOverride.isBlank()) {
+            return envOverride;
+        }
+        return userHome + File.separator + ".pconv";
+    }
+
     private static YouTube getYouTubeService() throws IOException {
         JsonFactory jsonFactory = JacksonFactory.getDefaultInstance();
         NetHttpTransport httpTransport = new NetHttpTransport();
-        Dotenv dotenv = Dotenv.configure()
-            .directory("C:/Bareha_Projects/PlaylistConverter")
-            .load();
-        String CLIENT_SECRET_PATH = dotenv.get("CLIENT_SECRET_JSON");
-    
-        if (CLIENT_SECRET_PATH == null) {
-            throw new IOException("Resource not found: " + CLIENT_SECRET_PATH);
+
+        String configDir = resolveConfigDir(System.getenv("PCONV_CONFIG_DIR"), System.getProperty("user.home"));
+        File configDirFile = new File(configDir);
+        if (!configDirFile.exists()) {
+            configDirFile.mkdirs();
         }
-    
-        Reader reader = new StringReader(CLIENT_SECRET_PATH);
+
+        Dotenv dotenv = Dotenv.configure()
+            .directory(configDir)
+            .ignoreIfMissing()
+            .load();
+        String clientSecretJson = dotenv.get("CLIENT_SECRET_JSON");
+
+        if (clientSecretJson == null) {
+            throw new IOException("CLIENT_SECRET_JSON not set. Add it to a .env file in " + configDir
+                + " (override with the PCONV_CONFIG_DIR environment variable).");
+        }
+
+        Reader reader = new StringReader(clientSecretJson);
         GoogleClientSecrets clientSecrets = GoogleClientSecrets.load(jsonFactory, reader);
-    
+
         GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
                 httpTransport, jsonFactory, clientSecrets,
                 Collections.singletonList("https://www.googleapis.com/auth/youtube.force-ssl"))
                 .setAccessType("offline")
+                .setDataStoreFactory(new FileDataStoreFactory(new File(configDirFile, "tokens")))
                 .build();
-    
+
         Credential credential = flow.loadCredential("user"); // checks if the credential is saved already
     
         if (credential == null) {
